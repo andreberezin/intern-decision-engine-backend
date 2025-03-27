@@ -1,5 +1,6 @@
 package ee.taltech.inbankbackend.service;
 
+import com.github.vladislavgoltjajev.personalcode.locale.estonia.EstonianPersonalCodeValidator;
 import ee.taltech.inbankbackend.config.DecisionEngineConstants;
 import ee.taltech.inbankbackend.exceptions.InvalidLoanAmountException;
 import ee.taltech.inbankbackend.exceptions.InvalidLoanPeriodException;
@@ -9,6 +10,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,6 +22,13 @@ class DecisionEngineTest {
 
     @InjectMocks
     private DecisionEngine decisionEngine;
+
+    @Mock
+    private EstonianPersonalCodeValidator mockValidator;
+
+    // Real instance for other tests
+    private EstonianPersonalCodeValidator realValidator;
+
 
     private String debtorPersonalCode;
     private String segment1PersonalCode;
@@ -31,6 +41,55 @@ class DecisionEngineTest {
         segment1PersonalCode = "50307172740";
         segment2PersonalCode = "38411266610";
         segment3PersonalCode = "35006069515";
+
+        // Initialize the real validator for tests that need it
+        realValidator = new EstonianPersonalCodeValidator();
+    }
+
+    @Test
+    void testTooYoungApplicant() {
+        // Mock the validator to always return true for this test
+        Mockito.when(mockValidator.isValid(Mockito.anyString())).thenReturn(true);
+
+        DecisionEngine decisionEngineWithMock = new DecisionEngine(mockValidator);
+
+        // Born in 2010, assuming test runs in 2025
+        String youngPersonalCode = "61001010001";
+
+        assertThrows(NoValidLoanException.class,
+                () -> decisionEngineWithMock.calculateApprovedLoan(youngPersonalCode, 4000L, 12),
+                "Expected exception for an applicant under 18 years old.");
+    }
+
+    @Test
+    void testTooOldApplicant() {
+        // Mock the validator to always return true for this test
+        Mockito.when(mockValidator.isValid(Mockito.anyString())).thenReturn(true);
+
+        DecisionEngine decisionEngineWithMock = new DecisionEngine(mockValidator);
+
+        // Born in 1920, assuming test runs in 2025
+        String oldPersonalCode = "32001010002";
+
+        assertThrows(NoValidLoanException.class,
+                () -> decisionEngineWithMock.calculateApprovedLoan(oldPersonalCode, 4000L, 12),
+                "Expected exception for an applicant exceeding max eligible age.");
+    }
+
+    @Test
+    void testValidAgeApplicant() throws InvalidLoanPeriodException, NoValidLoanException,
+            InvalidPersonalCodeException, InvalidLoanAmountException {
+        // Mock the validator to always return true for this test
+        Mockito.when(mockValidator.isValid(Mockito.anyString())).thenReturn(true);
+
+        DecisionEngine decisionEngineWithMock = new DecisionEngine(mockValidator);
+
+        // Born in 1985, assuming test runs in 2025
+        String validAgePersonalCode = "38501019003";
+
+        Decision decision = decisionEngineWithMock.calculateApprovedLoan(validAgePersonalCode, 4000L, 12);
+        assertEquals(10000, decision.getLoanAmount());
+        assertEquals(12, decision.getLoanPeriod());
     }
 
     @Test
