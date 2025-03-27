@@ -14,11 +14,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/loan")
 @CrossOrigin
 public class DecisionEngineController {
+    private static final Logger logger = LoggerFactory.getLogger(DecisionEngineController.class);
 
     private final DecisionEngine decisionEngine;
     private final DecisionResponse response;
@@ -44,6 +47,10 @@ public class DecisionEngineController {
      */
     @PostMapping("/decision")
     public ResponseEntity<DecisionResponse> requestDecision(@RequestBody DecisionRequest request) {
+        logger.info("Received loan decision request: personalCode={}, loanAmount={}, loanPeriod={}",
+                request.getPersonalCode(), request.getLoanAmount(), request.getLoanPeriod());
+
+
         try {
             Decision decision = decisionEngine.
                     calculateApprovedLoan(request.getPersonalCode(), request.getLoanAmount(), request.getLoanPeriod());
@@ -51,20 +58,28 @@ public class DecisionEngineController {
             response.setLoanPeriod(decision.getLoanPeriod());
             response.setErrorMessage(decision.getErrorMessage());
 
+
+            logger.info("Loan decision approved: loanAmount={}, loanPeriod={}",
+                    decision.getLoanAmount(), decision.getLoanPeriod());
+
             return ResponseEntity.ok(response);
         } catch (InvalidPersonalCodeException | InvalidLoanAmountException | InvalidLoanPeriodException e) {
+            logger.warn("Validation error: {}", e.getMessage());
+
             response.setLoanAmount(null);
             response.setLoanPeriod(null);
             response.setErrorMessage(e.getMessage());
 
             return ResponseEntity.badRequest().body(response);
         } catch (NoValidLoanException e) {
+            logger.warn("No valid loan found: {}", e.getMessage());
             response.setLoanAmount(null);
             response.setLoanPeriod(null);
             response.setErrorMessage(e.getMessage());
 
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         } catch (Exception e) {
+            logger.error("Unexpected error during loan decision processing", e);
             response.setLoanAmount(null);
             response.setLoanPeriod(null);
             response.setErrorMessage("An unexpected error occurred");
