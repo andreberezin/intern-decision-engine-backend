@@ -55,33 +55,49 @@ public class DecisionEngine {
             return new Decision(null, null, e.getMessage());
         }
 
-        int outputLoanAmount;
         creditModifier = getCreditModifier(personalCode);
 
         if (creditModifier == 0) {
             throw new NoValidLoanException("No valid loan found!");
         }
 
-        while (highestValidLoanAmount(loanPeriod) < DecisionEngineConstants.MINIMUM_LOAN_AMOUNT) {
+        int maxApprovedLoanAmount = DecisionEngineConstants.MINIMUM_LOAN_AMOUNT;
+
+        // determine the maximum approved loan amount
+        for (int amount = DecisionEngineConstants.MINIMUM_LOAN_AMOUNT;
+            amount <= DecisionEngineConstants.MAXIMUM_LOAN_AMOUNT;
+            amount += 100) {
+
+            if (isLoanApproved(amount, loanPeriod)) {
+                maxApprovedLoanAmount = amount;
+            }
+        }
+
+        // if loan is not approved then find out if it can be approved for a longer loan period
+        while (!isLoanApproved(maxApprovedLoanAmount, loanPeriod) &&
+                loanPeriod <= DecisionEngineConstants.MAXIMUM_LOAN_PERIOD) {
             loanPeriod++;
         }
 
-        if (loanPeriod <= DecisionEngineConstants.MAXIMUM_LOAN_PERIOD) {
-            outputLoanAmount = Math.min(DecisionEngineConstants.MAXIMUM_LOAN_AMOUNT, highestValidLoanAmount(loanPeriod));
-        } else {
-            throw new NoValidLoanException("No valid loan found!");
+
+        if (loanPeriod > DecisionEngineConstants.MAXIMUM_LOAN_PERIOD) {
+            throw new NoValidLoanException("No valid loan found within allowed loan periods.");
         }
 
-        return new Decision(outputLoanAmount, loanPeriod, null);
+
+        return new Decision(maxApprovedLoanAmount, loanPeriod, null);
     }
 
     /**
-     * Calculates the largest valid loan for the current credit modifier and loan period.
+     * Calculates the credit score for the current loan amount and loan period to determine if loan is approved or not.
      *
-     * @return Largest valid loan amount
+     * @return boolean
      */
-    private int highestValidLoanAmount(int loanPeriod) {
-        return creditModifier * loanPeriod;
+    private boolean isLoanApproved(long loanAmount, int loanPeriod) {
+
+        double creditScore = ((double) creditModifier / loanAmount) * loanPeriod / 10;
+
+        return creditScore >= 0.1;
     }
 
     /**
