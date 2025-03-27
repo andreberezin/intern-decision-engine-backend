@@ -17,8 +17,19 @@ import org.springframework.stereotype.Service;
 public class DecisionEngine {
 
     // Used to check for the validity of the presented ID code.
-    private final EstonianPersonalCodeValidator validator = new EstonianPersonalCodeValidator();
+    private final EstonianPersonalCodeValidator validator;
     private int creditModifier = 0;
+
+    // default constructor for production
+    public DecisionEngine() {
+        this.validator = new EstonianPersonalCodeValidator();
+    }
+
+    // constructor for testing age validity
+    public DecisionEngine(EstonianPersonalCodeValidator validator) {
+        this.validator = validator;
+    }
+
 
     /**
      * Calculates the maximum loan amount and period for the customer based on their ID code,
