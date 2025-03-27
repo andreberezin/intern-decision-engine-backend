@@ -8,6 +8,10 @@ import ee.taltech.inbankbackend.exceptions.InvalidPersonalCodeException;
 import ee.taltech.inbankbackend.exceptions.NoValidLoanException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.Period;
+import java.time.format.DateTimeFormatter;
+
 /**
  * A service class that provides a method for calculating an approved loan amount and period for a customer.
  * The loan amount is calculated based on the customer's credit modifier,
@@ -88,6 +92,41 @@ public class DecisionEngine {
         return new Decision(maxApprovedLoanAmount, loanPeriod, null);
     }
 
+
+    // calculate user's age from their personal code
+    public int calculateAge(String personalCode) {
+        LocalDate currentDate = LocalDate.now();
+        String year = personalCode.substring(1, 3);
+        String month = personalCode.substring(3, 5);
+        String day = personalCode.substring(5, 7);
+        String centuryIndicator = personalCode.substring(0, 1);
+        String century = switch (centuryIndicator) {
+            case "1", "2" -> "18";
+            case "3", "4" -> "19";
+            case "5", "6" -> "20";
+            case "7", "8" -> "21";
+            default -> throw new IllegalArgumentException("Invalid century indicator in personal code");
+        };
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        LocalDate birthDate = LocalDate.parse(century + year + "-" + month + "-" + day, formatter);
+
+        int age = Period.between(birthDate, currentDate).getYears();
+
+        return age;
+    }
+
+    // check if user is eligible by age
+    public boolean isEligibleByAge(int age) {
+        int maxAge = DecisionEngineConstants.LIFE_EXPECTANCY_ESTONIA - (DecisionEngineConstants.MAXIMUM_LOAN_PERIOD / 12);
+        System.out.println("Max Age: " + maxAge + ", Age: " + age);
+        if (age < 18 || age > maxAge) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
     /**
      * Calculates the credit score for the current loan amount and loan period to determine if loan is approved or not.
      *
@@ -136,11 +175,18 @@ public class DecisionEngine {
      * @throws InvalidLoanPeriodException If the requested loan period is invalid
      */
     private void verifyInputs(String personalCode, Long loanAmount, int loanPeriod)
-            throws InvalidPersonalCodeException, InvalidLoanAmountException, InvalidLoanPeriodException {
+            throws InvalidPersonalCodeException, InvalidLoanAmountException, InvalidLoanPeriodException, NoValidLoanException {
 
         if (!validator.isValid(personalCode)) {
             throw new InvalidPersonalCodeException("Invalid personal ID code!");
         }
+
+        int age = calculateAge(personalCode);
+
+        if (!isEligibleByAge(age)) {
+            throw new NoValidLoanException("Not eligible due to age.");
+        }
+
         if (!(DecisionEngineConstants.MINIMUM_LOAN_AMOUNT <= loanAmount)
                 || !(loanAmount <= DecisionEngineConstants.MAXIMUM_LOAN_AMOUNT)) {
             throw new InvalidLoanAmountException("Invalid loan amount!");
