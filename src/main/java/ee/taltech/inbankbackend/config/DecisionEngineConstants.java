@@ -12,6 +12,8 @@ public class DecisionEngineConstants {
     public static final Integer SEGMENT_2_CREDIT_MODIFIER = 300;
     public static final Integer SEGMENT_3_CREDIT_MODIFIER = 1000;
     public static final Integer LIFE_EXPECTANCY_ESTONIA = 80;
+
+    // todo differentiate life expectancies in different countries
     public static final Integer LIFE_EXPECTANCY_LATVIA = 75;
     public static final Integer LIFE_EXPECTANCY_LITHUANIA = 76;
 }
